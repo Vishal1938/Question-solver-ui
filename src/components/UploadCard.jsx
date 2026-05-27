@@ -126,3 +126,4 @@ const styles = {
   input: { width: '100%', boxSizing: 'border-box', padding: '8px 12px', fontSize: 13, border: '0.5px solid #ddd', borderRadius: 8, outline: 'none' },
   btnPrimary: { width: '100%', padding: 10, fontSize: 14, fontWeight: 500, background: '#111', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer' },
 };
+  

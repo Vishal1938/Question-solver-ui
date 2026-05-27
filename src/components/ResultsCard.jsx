@@ -1,19 +1,37 @@
-import { getDownloadUrl } from '../api/solverapi';
+// src/components/ResultsCard.js
 import { useState } from 'react';
+import { downloadResult } from '../api/solverapi';
 
 const TYPE_COLORS = {
-  MCQ:          { bg: '#E6F1FB', text: '#0C447C' },
-  short_answer: { bg: '#EAF3DE', text: '#27500A' },
-  descriptive:  { bg: '#EEEDFE', text: '#3C3489' },
-  numerical:    { bg: '#FAEEDA', text: '#633806' },
+  MCQ:          { bg: '#EEF2FF', text: '#3730A3' },
+  short_answer: { bg: '#F0FDF4', text: '#166534' },
+  descriptive:  { bg: '#FFF7ED', text: '#9A3412' },
+  numerical:    { bg: '#FDF4FF', text: '#6B21A8' },
+  true_false:   { bg: '#FFF1F2', text: '#9F1239' },
+  fill_blank:   { bg: '#F0F9FF', text: '#075985' },
 };
 
 export default function ResultsCard({ job, results }) {
-  const [view, setView] = useState('results');
+  const [view, setView]           = useState('results');
+  const [downloading, setDownloading] = useState(false);
+  const [dlError, setDlError]     = useState('');
 
   const copyJson = () => {
     navigator.clipboard.writeText(JSON.stringify(results, null, 2));
     alert('JSON copied!');
+  };
+
+  // Authenticated download — fetches PDF with JWT then triggers browser save
+  const handleDownload = async () => {
+    setDlError('');
+    setDownloading(true);
+    try {
+      await downloadResult(job.jobId, `QA_Report_${job.jobId}.pdf`);
+    } catch (e) {
+      setDlError('Download failed. Please try again.');
+    } finally {
+      setDownloading(false);
+    }
   };
 
   if (!results) return null;
@@ -28,7 +46,11 @@ export default function ResultsCard({ job, results }) {
 
       <div style={styles.tabs}>
         {['results', 'json'].map(t => (
-          <button key={t} style={{ ...styles.tab, ...(view === t ? styles.tabActive : {}) }} onClick={() => setView(t)}>
+          <button
+            key={t}
+            style={{ ...styles.tab, ...(view === t ? styles.tabActive : {}) }}
+            onClick={() => setView(t)}
+          >
             {t === 'results' ? `Results (${results.totalQuestions})` : 'JSON'}
           </button>
         ))}
@@ -42,7 +64,9 @@ export default function ResultsCard({ job, results }) {
               <div key={qa.id} style={styles.qaItem}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                   <span style={styles.qNum}>Q{qa.id}</span>
-                  <span style={{ ...styles.badge, background: c.bg, color: c.text }}>{qa.type}</span>
+                  <span style={{ ...styles.badge, background: c.bg, color: c.text }}>
+                    {qa.type}
+                  </span>
                 </div>
                 <p style={styles.question}>{qa.question}</p>
                 <p style={styles.answer}>{qa.answer}</p>
@@ -58,10 +82,17 @@ export default function ResultsCard({ job, results }) {
         </pre>
       )}
 
+      {dlError && <div style={styles.dlError}>{dlError}</div>}
+
       <div style={styles.actions}>
-        <a href={getDownloadUrl(job.jobId)} target="_blank" rel="noreferrer" style={styles.btnSecondary}>
-          Download PDF
-        </a>
+        {/* Authenticated download button — no plain <a href> */}
+        <button
+          style={{ ...styles.btnSecondary, opacity: downloading ? 0.6 : 1 }}
+          onClick={handleDownload}
+          disabled={downloading}
+        >
+          {downloading ? 'Downloading…' : 'Download PDF'}
+        </button>
         <button style={styles.btnSecondary} onClick={copyJson}>
           Copy JSON
         </button>
@@ -71,17 +102,51 @@ export default function ResultsCard({ job, results }) {
 }
 
 const styles = {
-  card: { background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 12, padding: '1.25rem' },
-  meta: { display: 'flex', gap: 16, fontSize: 12, color: '#aaa', marginBottom: '1rem' },
-  tabs: { display: 'flex', gap: 4, marginBottom: '1rem' },
-  tab: { padding: '6px 14px', fontSize: 13, borderRadius: 6, border: 'none', background: 'transparent', cursor: 'pointer', color: '#888' },
-  tabActive: { background: '#f5f5f5', fontWeight: 600, color: '#111' },
-  qaItem: { padding: '1rem 0', borderBottom: '0.5px solid #f0f0f0' },
-  qNum: { fontSize: 12, fontWeight: 600, color: '#aaa' },
-  badge: { fontSize: 11, fontWeight: 500, padding: '3px 8px', borderRadius: 20 },
-  question: { fontSize: 14, fontWeight: 500, color: '#111', margin: '0 0 6px' },
-  answer: { fontSize: 13, color: '#555', lineHeight: 1.6, margin: 0 },
-  json: { background: '#fafafa', borderRadius: 8, padding: '1rem', fontSize: 12, overflow: 'auto', maxHeight: 400 },
-  actions: { display: 'flex', gap: 8, marginTop: '1rem', paddingTop: '1rem', borderTop: '0.5px solid #f0f0f0' },
-  btnSecondary: { padding: '7px 16px', fontSize: 13, background: 'transparent', border: '0.5px solid #ddd', borderRadius: 8, color: '#555', cursor: 'pointer', textDecoration: 'none' },
+  card: {
+    background: '#fff', border: '0.5px solid #e5e7eb',
+    borderRadius: 10, padding: '16px 18px', marginBottom: '1rem',
+  },
+  meta: {
+    display: 'flex', gap: 16, fontSize: 12,
+    color: '#888', marginBottom: 12, flexWrap: 'wrap',
+  },
+  tabs: { display: 'flex', gap: 6, marginBottom: 14 },
+  tab: {
+    padding: '5px 12px', fontSize: 12, fontWeight: 500,
+    background: '#f3f4f6', border: 'none',
+    borderRadius: 6, cursor: 'pointer', color: '#555',
+  },
+  tabActive: { background: '#111', color: '#fff' },
+  qaItem: {
+    padding: '12px 0',
+    borderBottom: '0.5px solid #f3f4f6',
+  },
+  qNum: {
+    fontSize: 11, fontWeight: 700, color: '#888',
+    background: '#f3f4f6', borderRadius: 4,
+    padding: '2px 6px',
+  },
+  badge: {
+    fontSize: 10, fontWeight: 600, borderRadius: 4,
+    padding: '2px 7px', textTransform: 'uppercase', letterSpacing: 0.4,
+  },
+  question: { fontSize: 13, color: '#111', margin: '0 0 6px', lineHeight: 1.5 },
+  answer:   { fontSize: 13, color: '#374151', margin: 0, lineHeight: 1.6 },
+  json: {
+    background: '#f8fafc', border: '0.5px solid #e5e7eb',
+    borderRadius: 8, padding: 14, fontSize: 11,
+    overflow: 'auto', maxHeight: 400, color: '#374151',
+  },
+  actions: { display: 'flex', gap: 8, marginTop: 14 },
+  btnSecondary: {
+    padding: '7px 16px', fontSize: 12, fontWeight: 500,
+    background: '#fff', border: '1px solid #d1d5db',
+    borderRadius: 7, cursor: 'pointer', color: '#374151',
+    transition: 'background 0.15s',
+  },
+  dlError: {
+    fontSize: 12, color: '#991b1b',
+    background: '#fef2f2', border: '1px solid #fecaca',
+    borderRadius: 6, padding: '6px 10px', marginTop: 8,
+  },
 };
