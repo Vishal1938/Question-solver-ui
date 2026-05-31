@@ -50,3 +50,12 @@ export async function downloadResult(jobId, fileName) {
   document.body.removeChild(a);
   window.URL.revokeObjectURL(url);   // free memory
 }
+
+export async function getHistory() {
+  const token = sessionStorage.getItem('jwt_token');
+  const res = await fetch(`${BASE_URL}/api/solver/history`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error('Failed to fetch history');
+  return res.json();  // returns JobResultDto[]
+}
