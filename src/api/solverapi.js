@@ -35,20 +35,37 @@ export async function downloadResult(jobId, fileName) {
 
   const res = await fetch(`${BASE_URL}/api/solver/result/${jobId}/download`, {
     headers: { Authorization: `Bearer ${token}` },
+    redirect: 'manual',   // ← don't auto-follow redirects — handle manually
   });
 
-  if (!res.ok) throw new Error(`Download failed: ${res.status}`);
+  // 302 redirect → server is pointing us to Cloudinary public URL
+  if (res.type === 'opaqueredirect' || res.status === 302) {
+    // Get the Cloudinary URL from our backend first, then open directly
+    const infoRes = await fetch(`${BASE_URL}/api/solver/download-url/${jobId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (infoRes.ok) {
+      const { url } = await infoRes.json();
+      window.open(url, '_blank');
+      return;
+    }
+  }
 
-  // Convert response to a blob and trigger browser download
-  const blob = await res.blob();
-  const url  = window.URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  a.href     = url;
-  a.download = fileName || `QA_Report_${jobId}.pdf`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  window.URL.revokeObjectURL(url);   // free memory
+  // 200 → file served directly from disk as blob
+  if (res.ok) {
+    const blob = await res.blob();
+    const url  = window.URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+    return;
+  }
+
+  throw new Error(`Download failed: ${res.status}`);
 }
 
 export async function getHistory() {
