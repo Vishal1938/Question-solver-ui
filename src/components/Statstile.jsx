@@ -24,7 +24,7 @@ export default function StatsTile({ history }) {
   return (
     <div style={s.wrap}>
       <div style={s.header}>
-        <span style={s.headerLabel}>// Your Stats</span>
+        <span style={s.headerLabel}> Your Stats</span>
       </div>
 
       <div style={s.grid}>
