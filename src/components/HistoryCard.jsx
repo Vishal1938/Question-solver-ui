@@ -1,286 +1,290 @@
 // src/components/HistoryCard.jsx
 import { useState } from 'react';
-import { downloadResult } from '../api/solverapi';
+import { shareJobAsCommunityPaper, unshareJob } from '../api/papersapi';
 
-const STATUS_CONFIG = {
-  DONE:       { label: 'Completed',  dot: '#22c55e', bg: '#f0fdf4', text: '#15803d', border: '#bbf7d0' },
-  FAILED:     { label: 'Failed',     dot: '#ef4444', bg: '#fef2f2', text: '#b91c1c', border: '#fecaca' },
-  PROCESSING: { label: 'Processing', dot: '#f59e0b', bg: '#fffbeb', text: '#b45309', border: '#fde68a' },
-  PENDING:    { label: 'Pending',    dot: '#6366f1', bg: '#eef2ff', text: '#4338ca', border: '#c7d2fe' },
-};
+const BASE = process.env.REACT_APP_API_BASE_URL;
 
-function fmt(iso) {
-  if (!iso) return '—';
-  const d = new Date(iso);
-  const date = d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-  const time = d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
-  return { date, time };
-}
-
-function elapsed(ms) {
-  if (!ms) return null;
-  if (ms < 1000)  return `${ms}ms`;
-  if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
-  return `${(ms / 60000).toFixed(1)}m`;
-}
+const SUBJECTS = [
+  'Mathematics', 'Physics', 'Chemistry', 'Biology', 'ComputerScience',
+  'English', 'History', 'Geography', 'Economics', 'GeneralKnowledge',
+];
+const BOARDS  = ['CBSE', 'ICSE', 'State-UP', 'State-MH', 'State-TN', 'Other'];
+const CLASSES = ['8', '9', '10', '11', '12'];
+const CURRENT_YEAR = new Date().getFullYear();
+const YEARS = Array.from({ length: CURRENT_YEAR - 2009 }, (_, i) => CURRENT_YEAR - i);
 
 export default function HistoryCard({ item, index }) {
   const [downloading, setDownloading] = useState(false);
-  const [dlError, setDlError]         = useState('');
-  const [expanded, setExpanded]       = useState(false);
+  const [shareOpen, setShareOpen]     = useState(false);
+  const [shared, setShared]           = useState(item.sharedToCommunity || false);
+  const [sharing, setSharing]         = useState(false);
+  const [shareMsg, setShareMsg]       = useState('');
+  const [shareErr, setShareErr]       = useState('');
 
-  const cfg      = STATUS_CONFIG[item.status] || STATUS_CONFIG.PENDING;
-  const created  = fmt(item.createdAt);
-  const completed = item.completedAt ? fmt(item.completedAt) : null;
+  const [meta, setMeta] = useState({ board: '', classLevel: '', subject: '', year: '' });
 
+  const isDone = item.status === 'DONE';
+
+  // ── Download ──────────────────────────────────────────────────
   const handleDownload = async () => {
-    setDlError('');
     setDownloading(true);
     try {
-      await downloadResult(item.jobId, `QA_Report_${item.jobId}.pdf`);
+      const token = sessionStorage.getItem('jwt_token');
+      const res = await fetch(`${BASE}/api/solver/result/${item.jobId}/download`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error('Download failed');
+      const blob = await res.blob();
+      const url  = window.URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href = url;
+      a.download = `QA_Report_${item.jobId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
     } catch {
-      setDlError('Download failed. Please retry.');
+      /* swallow — could surface a toast */
     } finally {
       setDownloading(false);
     }
   };
 
+  // ── Share ─────────────────────────────────────────────────────
+  const canSubmitShare = meta.board && meta.classLevel && meta.subject && meta.year;
+
+  const handleShare = async () => {
+    if (!canSubmitShare) return;
+    setSharing(true);
+    setShareErr('');
+    setShareMsg('');
+    try {
+      await shareJobAsCommunityPaper(item.jobId, { ...meta, year: Number(meta.year) });
+      setShared(true);
+      setShareOpen(false);
+      setShareMsg('Submitted for review ✓');
+    } catch (e) {
+      setShareErr(e.message);
+    } finally {
+      setSharing(false);
+    }
+  };
+
+  const handleUnshare = async () => {
+    setSharing(true);
+    setShareErr('');
+    try {
+      await unshareJob(item.jobId);
+      setShared(false);
+      setShareMsg('');
+    } catch (e) {
+      setShareErr(e.message);
+    } finally {
+      setSharing(false);
+    }
+  };
+
+  // ── Status pill ───────────────────────────────────────────────
+  const statusStyle = {
+    DONE:       { bg: 'rgba(34,197,94,0.12)',  color: '#4ade80' },
+    PROCESSING: { bg: 'rgba(232,255,71,0.12)', color: '#e8ff47' },
+    FAILED:     { bg: 'rgba(239,68,68,0.12)',  color: '#f87171' },
+  }[item.status] || { bg: 'rgba(255,255,255,0.06)', color: '#9ca3af' };
+
   return (
-    <div
-      style={{
-        ...s.card,
-        animationDelay: `${index * 60}ms`,
-      }}
-    >
-      {/* ── Top row ──────────────────────────────────────────── */}
-      <div style={s.topRow}>
-
-        {/* File icon */}
-        <div style={s.fileIcon}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-               stroke="#6b7280" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
-            <polyline points="14 2 14 8 20 8"/>
-            <line x1="16" y1="13" x2="8" y2="13"/>
-            <line x1="16" y1="17" x2="8" y2="17"/>
-            <polyline points="10 9 9 9 8 9"/>
-          </svg>
+    <div style={s.card}>
+      {/* Top row */}
+      <div style={s.top}>
+        <div style={s.left}>
+          <div style={s.fileIcon}>📄</div>
+          <div style={s.info}>
+            <div style={s.fileName}>{item.fileName}</div>
+            <div style={s.metaLine}>
+              {item.totalQuestions > 0 && <span>{item.totalQuestions} questions</span>}
+              {item.processingTimeMs > 0 && (
+                <>
+                  <span style={s.dot}>·</span>
+                  <span>{(item.processingTimeMs / 1000).toFixed(1)}s</span>
+                </>
+              )}
+            </div>
+          </div>
         </div>
-
-        {/* File name + date */}
-        <div style={s.fileInfo}>
-          <span style={s.fileName} title={item.fileName}>
-            {item.fileName || 'Untitled document'}
-          </span>
-          <span style={s.dateRow}>
-            <span style={s.dateText}>{created.date}</span>
-            <span style={s.dateDot}>·</span>
-            <span style={s.dateText}>{created.time}</span>
-          </span>
-        </div>
-
-        {/* Status chip */}
-        <div style={{
-          ...s.statusChip,
-          background: cfg.bg,
-          color: cfg.text,
-          border: `1px solid ${cfg.border}`,
-        }}>
-          <span style={{ ...s.statusDot, background: cfg.dot }} />
-          {cfg.label}
-        </div>
+        <span style={{ ...s.statusPill, background: statusStyle.bg, color: statusStyle.color }}>
+          {item.status}
+        </span>
       </div>
 
-      {/* ── Stats row ─────────────────────────────────────────── */}
-      {item.status === 'DONE' && (
-        <div style={s.statsRow}>
-          {item.totalQuestions > 0 && (
-            <div style={s.stat}>
-              <span style={s.statIcon}>❓</span>
-              <span style={s.statVal}>{item.totalQuestions}</span>
-              <span style={s.statLabel}>questions</span>
-            </div>
-          )}
-          {item.processingTimeMs > 0 && (
-            <div style={s.stat}>
-              <span style={s.statIcon}>⚡</span>
-              <span style={s.statVal}>{elapsed(item.processingTimeMs)}</span>
-              <span style={s.statLabel}>processed in</span>
-            </div>
-          )}
-          {completed && (
-            <div style={s.stat}>
-              <span style={s.statIcon}>✓</span>
-              <span style={s.statVal}>{completed.time}</span>
-              <span style={s.statLabel}>completed at</span>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ── Error message (expandable) ────────────────────────── */}
-      {item.status === 'FAILED' && item.errorMessage && (
-        <div style={s.errorBlock}>
-          <button style={s.errorToggle} onClick={() => setExpanded(e => !e)}>
-            <span>⚠ Error details</span>
-            <span style={{ fontSize: 10 }}>{expanded ? '▲' : '▼'}</span>
-          </button>
-          {expanded && (
-            <pre style={s.errorPre}>{item.errorMessage}</pre>
-          )}
-        </div>
-      )}
-
-      {/* ── Download error ────────────────────────────────────── */}
-      {dlError && <div style={s.dlError}>{dlError}</div>}
-
-      {/* ── Actions ───────────────────────────────────────────── */}
-      {item.status === 'DONE' && (
+      {/* Actions */}
+      {isDone && (
         <div style={s.actions}>
           <button
-            style={{
-              ...s.dlBtn,
-              opacity: downloading ? 0.65 : 1,
-              cursor: downloading ? 'not-allowed' : 'pointer',
-            }}
+            style={{ ...s.downloadBtn, opacity: downloading ? 0.6 : 1 }}
             onClick={handleDownload}
             disabled={downloading}
           >
-            {downloading ? (
-              <>
-                <span style={s.spinner} /> Downloading…
-              </>
-            ) : (
-              <>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
-                     stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
-                  <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
-                  <polyline points="7 10 12 15 17 10"/>
-                  <line x1="12" y1="15" x2="12" y2="3"/>
-                </svg>
-                Download PDF
-              </>
-            )}
+            {downloading ? 'Downloading…' : '↓ Download'}
           </button>
 
-          <div style={s.jobIdTag} title={item.jobId}>
-            ID: {item.jobId.slice(0, 8)}…
+          {/* Share state */}
+          {shared ? (
+            <div style={s.sharedRow}>
+              <span style={s.sharedBadge}>✓ Shared to community</span>
+              <button style={s.withdrawBtn} onClick={handleUnshare} disabled={sharing}>
+                {sharing ? '…' : 'Withdraw'}
+              </button>
+            </div>
+          ) : (
+            <button style={s.shareBtn} onClick={() => setShareOpen(!shareOpen)}>
+              {shareOpen ? 'Cancel' : '↗ Share with community'}
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Share form */}
+      {shareOpen && !shared && (
+        <div style={s.shareForm}>
+          <div style={s.shareFormTitle}>
+            Add details so others can find your paper
+          </div>
+          <div style={s.shareGrid}>
+            <select style={s.select} value={meta.board}
+                    onChange={(e) => setMeta({ ...meta, board: e.target.value })}>
+              <option value="">Board…</option>
+              {BOARDS.map(b => <option key={b} value={b}>{b}</option>)}
+            </select>
+            <select style={s.select} value={meta.classLevel}
+                    onChange={(e) => setMeta({ ...meta, classLevel: e.target.value })}>
+              <option value="">Class…</option>
+              {CLASSES.map(c => <option key={c} value={c}>Class {c}</option>)}
+            </select>
+            <select style={s.select} value={meta.subject}
+                    onChange={(e) => setMeta({ ...meta, subject: e.target.value })}>
+              <option value="">Subject…</option>
+              {SUBJECTS.map(s2 => <option key={s2} value={s2}>{s2}</option>)}
+            </select>
+            <select style={s.select} value={meta.year}
+                    onChange={(e) => setMeta({ ...meta, year: e.target.value })}>
+              <option value="">Year…</option>
+              {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+            </select>
+          </div>
+          {shareErr && <div style={s.shareErr}>⚠ {shareErr}</div>}
+          <button
+            style={{ ...s.shareSubmit, opacity: (!canSubmitShare || sharing) ? 0.5 : 1 }}
+            onClick={handleShare}
+            disabled={!canSubmitShare || sharing}
+          >
+            {sharing ? 'Submitting…' : 'Submit for review'}
+          </button>
+          <div style={s.shareNote}>
+            Submissions are reviewed by an admin before appearing publicly.
           </div>
         </div>
       )}
+
+      {shareMsg && <div style={s.shareSuccess}>{shareMsg}</div>}
     </div>
   );
 }
 
-// ── Styles ─────────────────────────────────────────────────────
 const s = {
   card: {
-    background: '#fff',
-    border: '1px solid #e5e7eb',
-    borderRadius: 14,
-    padding: '16px 18px',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 12,
-    animation: 'slideUp 0.35s cubic-bezier(0.16,1,0.3,1) both',
-    transition: 'box-shadow 0.2s, border-color 0.2s',
+    background: 'rgba(255,255,255,0.04)',
+    border: '1px solid rgba(255,255,255,0.07)',
+    borderRadius: 14, padding: 16,
   },
-
-  // Top row
-  topRow: {
-    display: 'flex', alignItems: 'center', gap: 12,
-  },
-  fileIcon: {
-    width: 38, height: 38, borderRadius: 9,
-    background: '#f9fafb', border: '1px solid #e5e7eb',
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    flexShrink: 0,
-  },
-  fileInfo: {
-    flex: 1, minWidth: 0,
-    display: 'flex', flexDirection: 'column', gap: 3,
-  },
+  top: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 },
+  left: { display: 'flex', gap: 12, minWidth: 0 },
+  fileIcon: { fontSize: 20, flexShrink: 0 },
+  info: { minWidth: 0 },
   fileName: {
-    fontSize: 14, fontWeight: 600, color: '#111',
+    fontSize: 14, fontWeight: 600, color: '#f0f0f8',
     whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+    maxWidth: 280,
   },
-  dateRow: { display: 'flex', alignItems: 'center', gap: 4 },
-  dateText: { fontSize: 11, color: '#9ca3af' },
-  dateDot:  { fontSize: 11, color: '#d1d5db' },
-
-  // Status
-  statusChip: {
-    display: 'flex', alignItems: 'center', gap: 5,
-    fontSize: 11, fontWeight: 600,
-    padding: '4px 10px', borderRadius: 20,
-    flexShrink: 0, whiteSpace: 'nowrap',
+  metaLine: {
+    display: 'flex', alignItems: 'center', gap: 6,
+    fontSize: 11, color: '#6b6b80', fontFamily: 'monospace', marginTop: 4,
   },
-  statusDot: {
-    width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
+  dot: { color: '#4b5563' },
+  statusPill: {
+    fontSize: 10, fontWeight: 700, padding: '4px 10px',
+    borderRadius: 6, fontFamily: 'monospace', flexShrink: 0,
   },
 
-  // Stats
-  statsRow: {
-    display: 'flex', gap: 20,
-    paddingTop: 4,
-    borderTop: '1px dashed #f3f4f6',
-  },
-  stat: {
-    display: 'flex', alignItems: 'center', gap: 4,
-  },
-  statIcon:  { fontSize: 11 },
-  statVal:   { fontSize: 13, fontWeight: 700, color: '#111' },
-  statLabel: { fontSize: 11, color: '#9ca3af' },
-
-  // Error
-  errorBlock: {
-    background: '#fef2f2', borderRadius: 8,
-    border: '1px solid #fecaca', overflow: 'hidden',
-  },
-  errorToggle: {
-    width: '100%', padding: '8px 12px',
-    background: 'none', border: 'none', cursor: 'pointer',
-    fontSize: 12, color: '#b91c1c', fontWeight: 500,
-    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-  },
-  errorPre: {
-    margin: 0, padding: '8px 12px 12px',
-    fontSize: 11, color: '#7f1d1d',
-    fontFamily: 'monospace', whiteSpace: 'pre-wrap',
-    wordBreak: 'break-word', lineHeight: 1.5,
-    borderTop: '1px solid #fecaca',
-  },
-  dlError: {
-    fontSize: 12, color: '#b91c1c',
-    background: '#fef2f2', border: '1px solid #fecaca',
-    borderRadius: 6, padding: '6px 10px',
-  },
-
-  // Actions
   actions: {
-    display: 'flex', alignItems: 'center',
-    justifyContent: 'space-between', flexWrap: 'wrap', gap: 8,
-    paddingTop: 4,
-    borderTop: '1px dashed #f3f4f6',
+    display: 'flex', alignItems: 'center', gap: 10,
+    marginTop: 14, flexWrap: 'wrap',
   },
-  dlBtn: {
-    display: 'flex', alignItems: 'center', gap: 7,
-    padding: '8px 16px', fontSize: 13, fontWeight: 600,
-    background: '#111', color: '#fff',
-    border: 'none', borderRadius: 8,
-    transition: 'opacity 0.15s',
+  downloadBtn: {
+    padding: '8px 16px', background: '#e8ff47', color: '#0a0a0f',
+    border: 'none', borderRadius: 10, fontWeight: 700,
+    fontSize: 12, cursor: 'pointer', fontFamily: 'inherit',
   },
-  spinner: {
-    width: 12, height: 12,
-    border: '2px solid rgba(255,255,255,0.3)',
-    borderTopColor: '#fff',
-    borderRadius: '50%',
-    display: 'inline-block',
-    animation: 'spin 0.7s linear infinite',
+  shareBtn: {
+    padding: '8px 16px',
+    background: 'rgba(255,255,255,0.04)',
+    border: '1px solid rgba(255,255,255,0.1)',
+    borderRadius: 10, color: '#f0f0f8',
+    fontSize: 12, fontWeight: 600, cursor: 'pointer',
+    fontFamily: 'inherit',
   },
-  jobIdTag: {
-    fontSize: 10, color: '#9ca3af',
-    fontFamily: 'monospace', letterSpacing: 0.3,
-    cursor: 'help',
+  sharedRow: { display: 'flex', alignItems: 'center', gap: 10 },
+  sharedBadge: {
+    fontSize: 11, fontWeight: 600, color: '#4ade80',
+    fontFamily: 'monospace',
+  },
+  withdrawBtn: {
+    padding: '6px 12px', background: 'none',
+    border: '1px solid rgba(239,68,68,0.3)',
+    borderRadius: 8, color: '#f87171',
+    fontSize: 11, cursor: 'pointer', fontFamily: 'inherit',
+  },
+
+  shareForm: {
+    marginTop: 14, padding: 14,
+    background: 'rgba(255,255,255,0.02)',
+    border: '1px solid rgba(255,255,255,0.06)',
+    borderRadius: 12,
+  },
+  shareFormTitle: {
+    fontSize: 12, color: '#9ca3af', marginBottom: 12,
+    fontFamily: 'monospace',
+  },
+  shareGrid: {
+    display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
+    gap: 8, marginBottom: 12,
+  },
+  select: {
+    padding: '8px 10px',
+    background: 'rgba(255,255,255,0.04)',
+    border: '1px solid rgba(255,255,255,0.07)',
+    borderRadius: 8, color: '#f0f0f8',
+    fontSize: 12, fontFamily: 'monospace',
+    cursor: 'pointer', outline: 'none',
+  },
+  shareErr: {
+    fontSize: 11, color: '#f87171', fontFamily: 'monospace',
+    marginBottom: 10,
+  },
+  shareSubmit: {
+    width: '100%', padding: '10px',
+    background: '#e8ff47', color: '#0a0a0f',
+    border: 'none', borderRadius: 10,
+    fontWeight: 700, fontSize: 13, cursor: 'pointer',
+    fontFamily: 'inherit',
+  },
+  shareNote: {
+    fontSize: 10, color: '#6b6b80', fontFamily: 'monospace',
+    marginTop: 8, textAlign: 'center',
+  },
+  shareSuccess: {
+    marginTop: 12, padding: '8px 12px',
+    background: 'rgba(34,197,94,0.1)',
+    border: '1px solid rgba(34,197,94,0.2)',
+    borderRadius: 8, fontSize: 12, color: '#4ade80',
+    fontFamily: 'monospace', textAlign: 'center',
   },
 };

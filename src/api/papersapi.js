@@ -85,6 +85,61 @@ export async function downloadPaper(paperId, title) {
 }
 
 // ── Stub for PR-3 ──────────────────────────────────────────────
-export async function shareJobAsCommunityPaper(jobId) {
-  throw new Error('shareJobAsCommunityPaper — not yet implemented (PR-3)');
+// ── ADD THESE to src/api/papersApi.js ──────────────────────────
+// (replaces the PR-3 stub `shareJobAsCommunityPaper`)
+
+// ── Community: share a report to the archive (PR-3) ────────────
+export async function shareJobAsCommunityPaper(jobId, meta) {
+  const res = await fetch(`${BASE_URL}/api/papers/share/${jobId}`, {
+    method: 'PUT',
+    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify(meta),   // { board, classLevel, subject, year }
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `Share failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+// ── Community: withdraw a pending submission (PR-3) ────────────
+export async function unshareJob(jobId) {
+  const res = await fetch(`${BASE_URL}/api/papers/share/${jobId}`, {
+    method: 'DELETE',
+    headers: authHeaders(),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `Unshare failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+// ── Admin: pending review queue (PR-3) ─────────────────────────
+export async function getPendingPapers() {
+  const res = await fetch(`${BASE_URL}/api/admin/papers/pending`, {
+    headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error(`Pending fetch failed: ${res.status}`);
+  return res.json();
+}
+
+// ── Admin: approve a pending paper (PR-3) ──────────────────────
+export async function approvePaper(paperId) {
+  const res = await fetch(`${BASE_URL}/api/admin/papers/${paperId}/approve`, {
+    method: 'PUT',
+    headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error(`Approve failed: ${res.status}`);
+  return res.json();
+}
+
+// ── Admin: reject a pending paper (PR-3) ───────────────────────
+export async function rejectPaper(paperId) {
+  const res = await fetch(`${BASE_URL}/api/admin/papers/${paperId}/reject`, {
+    method: 'PUT',
+    headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error(`Reject failed: ${res.status}`);
+  return res.json();
 }

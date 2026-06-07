@@ -1,6 +1,7 @@
 // src/pages/PaperDetailPage.jsx
 import { useState, useEffect } from 'react';
 import { getPaper, downloadPaper } from '../api/papersapi';
+import MathText from '../components/MathText';
 
 const TYPE_COLORS = {
   MCQ:          { bg: 'rgba(99,102,241,0.15)',  text: '#a5b4fc' },
@@ -171,7 +172,7 @@ export default function PaperDetailPage({ paperId, onBack }) {
 
               {/* Answer */}
               {showAnswer && q.expectedAnswer && (
-                <div style={s.answer}>{q.expectedAnswer}</div>
+                 <MathText style={s.answer}>{q.expectedAnswer}</MathText>
               )}
             </div>
           );

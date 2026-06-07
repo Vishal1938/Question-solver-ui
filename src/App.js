@@ -12,6 +12,7 @@ import ComingSoonPage from './pages/ComingSoonPage';
 import AdminPapersPage from './pages/AdminPapersPage';
 import PastPapersPage from './pages/PastPapersPage';
 import PaperDetailPage from './pages/PaperDetailPage';
+import ResultsView from './components/ResultsView';
 
 import {
   solveAsync,
@@ -193,7 +194,7 @@ export default function App() {
               </div>
             )}
 
-            {results && <ResultsCard job={job} results={results} />}
+            {job?.status === 'DONE' && <ResultsView jobId={job.jobId} />}
           </>
         );
 
