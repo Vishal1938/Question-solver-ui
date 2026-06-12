@@ -5,7 +5,6 @@ import AuthPage from './pages/AuthPage';
 import Layout from './components/Layout';
 import UploadCard from './components/UploadCard';
 import StatusBar from './components/StatusBar';
-import ResultsCard from './components/ResultsCard';
 import HistoryCard from './components/HistoryCard';
 import StatsTile from './components/Statstile';
 import ComingSoonPage from './pages/ComingSoonPage';
@@ -59,7 +58,6 @@ export default function App() {
   // ── State for the upload+solve flow ──────────────────────────
   const [loading, setLoading] = useState(false);
   const [job, setJob]         = useState(null);
-  const [results, setResults] = useState(null);
   const [error, setError]     = useState(null);
   const pollRef               = useRef(null);
 
