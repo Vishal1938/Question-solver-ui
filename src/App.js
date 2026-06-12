@@ -58,7 +58,6 @@ export default function App() {
   // ── State for the upload+solve flow ──────────────────────────
   const [loading, setLoading] = useState(false);
   const [job, setJob]         = useState(null);
-  const [results, setResults] = useState(null);
   const [error, setError]     = useState(null);
   const pollRef               = useRef(null);
 
@@ -128,7 +127,7 @@ export default function App() {
           clearInterval(pollRef.current);
           try {
             const token = sessionStorage.getItem('jwt_token');
-            const res = await fetch(`${BASE}/api/solver/result/${jobId}/json`, {
+             await fetch(`${BASE}/api/solver/result/${jobId}/json`, {
               headers: { Authorization: `Bearer ${token}` },
             });
             
