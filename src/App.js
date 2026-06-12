@@ -58,6 +58,7 @@ export default function App() {
   // ── State for the upload+solve flow ──────────────────────────
   const [loading, setLoading] = useState(false);
   const [job, setJob]         = useState(null);
+  const [results, setResults] = useState(null);
   const [error, setError]     = useState(null);
   const pollRef               = useRef(null);
 
@@ -106,7 +107,6 @@ export default function App() {
   const handleSubmit = async (file, systemPrompt, email) => {
     setLoading(true);
     setJob(null);
-    setResults(null);
     setError(null);
     try {
       const { data } = await solveAsync(file, systemPrompt, email);
@@ -131,7 +131,7 @@ export default function App() {
             const res = await fetch(`${BASE}/api/solver/result/${jobId}/json`, {
               headers: { Authorization: `Bearer ${token}` },
             });
-            if (res.ok) setResults(await res.json());
+            
           } catch {}
           // Refresh history so the new job appears immediately
           loadHistory();
