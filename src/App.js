@@ -12,6 +12,7 @@ import AdminPapersPage from './pages/AdminPapersPage';
 import PastPapersPage from './pages/PastPapersPage';
 import PaperDetailPage from './pages/PaperDetailPage';
 import ResultsView from './components/ResultsView';
+import QuizzesPage from './pages/QuizzesPage';
 
 import {
   solveAsync,
@@ -33,8 +34,8 @@ const PAGE_META = {
                 breadcrumb: 'Study › Past Papers' },
   mockTest:   { title: 'Mock Test',      subtitle: '// AI-generated practice tests',
                 breadcrumb: 'Study › Mock Test' },
-  quiz:       { title: 'Quiz Mode',      subtitle: '// turn any paper into an interactive quiz',
-                breadcrumb: 'Practice › Quiz Mode' },
+  quiz:       { title:    'Quiz Mode', subtitle: '// upload an MCQ paper, get an interactive quiz',
+               breadcrumb: 'Practice › Quiz Mode'},
   flashcards: { title: 'Flashcards',     subtitle: '// spaced repetition for exam prep',
                 breadcrumb: 'Practice › Flashcards' },
   chat:       { title: 'Doubt Chat',     subtitle: '// chat with your notes — ask anything',
@@ -69,7 +70,7 @@ export default function App() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError]     = useState('');
   const [downloading, setDownloading]       = useState(null);
-
+  const [quizView, setQuizView] = useState({ mode: 'list', quizId: null });// mode: 'list' | 'attempt' | 'review'
   const [openPaperId, setOpenPaperId] = useState(null);
 
   // ── Load history (used by stats + history page) ──────────────
@@ -96,6 +97,7 @@ export default function App() {
   // Reload history when navigating to history page
   const navigate = (view) => {
     setActiveView(view);
+    if (view !== 'quiz') setQuizView({ mode: 'list', quizId: null });
     if (view !== 'past') setOpenPaperId(null);
     if (view === 'history') loadHistory();
   };
@@ -260,11 +262,13 @@ export default function App() {
         />;
 
       case 'quiz':
-        return <ComingSoonPage
-          title="Interactive Quiz Mode"
-          description="Turn any uploaded paper into a self-paced quiz. Answer questions one by one, get instant feedback."
-          eta="Coming Soon"
-        />;
+  return (
+    <QuizzesPage
+      onAttemptQuiz={(quizId) => setQuizView({ mode: 'attempt', quizId })}
+      onReviewQuiz={(quizId) => setQuizView({ mode: 'review', quizId })}
+    />
+  );
+  // PR-2 will switch on quizView.mode to render QuizRunnerPage / QuizResultPage
 
       case 'flashcards':
         return <ComingSoonPage
