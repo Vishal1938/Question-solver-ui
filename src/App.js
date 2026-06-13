@@ -13,6 +13,8 @@ import PastPapersPage from './pages/PastPapersPage';
 import PaperDetailPage from './pages/PaperDetailPage';
 import ResultsView from './components/ResultsView';
 import QuizzesPage from './pages/QuizzesPage';
+import QuizRunnerPage from './pages/QuizRunnerPage';
+import QuizResultPage from './pages/QuizResultPage';
 
 import {
   solveAsync,
@@ -72,6 +74,8 @@ export default function App() {
   const [downloading, setDownloading]       = useState(null);
   const [quizView, setQuizView] = useState({ mode: 'list', quizId: null });// mode: 'list' | 'attempt' | 'review'
   const [openPaperId, setOpenPaperId] = useState(null);
+  const [quizResult, setQuizResult] = useState(null);
+  
 
   // ── Load history (used by stats + history page) ──────────────
   const loadHistory = useCallback(async () => {
@@ -262,14 +266,46 @@ export default function App() {
         />;
 
       case 'quiz':
+  if (quizView.mode === 'attempt') {
+    return (
+      <QuizRunnerPage
+        quizId={quizView.quizId}
+        onComplete={(result) => {
+          setQuizResult(result);
+          setQuizView({ mode: 'result', quizId: quizView.quizId });
+        }}
+        onBack={() => setQuizView({ mode: 'list', quizId: null })}
+      />
+    );
+  }
+  if (quizView.mode === 'result') {
+    return (
+      <QuizResultPage
+        quizId={quizView.quizId}
+        result={quizResult}                 // fresh result from submit
+        onBack={() => {
+          setQuizResult(null);
+          setQuizView({ mode: 'list', quizId: null });
+        }}
+      />
+    );
+  }
+  if (quizView.mode === 'review') {
+    return (
+      <QuizResultPage
+        quizId={quizView.quizId}
+        result={null}                        // null → fetches via getQuizResult
+        onBack={() => setQuizView({ mode: 'list', quizId: null })}
+      />
+    );
+  }
+  // default: list
   return (
     <QuizzesPage
       onAttemptQuiz={(quizId) => setQuizView({ mode: 'attempt', quizId })}
       onReviewQuiz={(quizId) => setQuizView({ mode: 'review', quizId })}
     />
   );
-  // PR-2 will switch on quizView.mode to render QuizRunnerPage / QuizResultPage
-
       case 'flashcards':
         return <ComingSoonPage
           title="Flashcards"
