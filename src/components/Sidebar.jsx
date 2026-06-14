@@ -17,7 +17,7 @@ const base = [
   {
     title: 'Practice',
     items: [
-      { id: 'quiz',       label: 'Quiz Mode',      icon: 'quiz',    badge: 'SOON' },
+      { id: 'quiz',       label: 'Quiz Mode',      icon: 'quiz',    badge: 'NEW' },
       { id: 'flashcards', label: 'Flashcards',     icon: 'cards',   badge: 'SOON' },
       { id: 'chat',       label: 'Doubt Chat',     icon: 'chat',    badge: 'AI' },
     ],
