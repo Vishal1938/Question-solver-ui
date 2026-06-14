@@ -54,7 +54,7 @@ export async function deleteQuiz(quizId) {
 
 // ── Fetch a quiz for attempting (no correct answers) ───────────
 export async function getQuizForAttempt(quizId) {
-  const res = await fetch(`${BASE_URL}/api/quizzes/${quizId}`, {
+  const res = await fetch(`${BASE_URL}/api/quizzes/${quizId}/attempt`, {
     headers: authHeaders(),
   });
   if (!res.ok) {
